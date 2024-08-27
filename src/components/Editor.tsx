@@ -12,10 +12,12 @@ enum FileState {
 
 export default function Editor({
   initialFileContents,
+  fileName,
   closeFile,
   saveFile,
 }: {
   initialFileContents: string;
+  fileName: string;
   closeFile: () => void;
   saveFile: (content: string) => Promise<void>;
 }) {
@@ -41,6 +43,7 @@ export default function Editor({
     <div className="p-2 size-full">
       <div className="grid grid-rows-[min-content_auto] size-full rounded-md border shadow">
         <div className="flex items-center w-full gap-2 p-2 border-b rounded-t-md">
+          <div className="mx-4">{fileName}</div>
           <Button onClick={closeFile} variant="outline">
             Close
           </Button>
