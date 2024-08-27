@@ -1,4 +1,4 @@
-import DropZone from "./Dropzone";
+import DropZone from "./DropZone";
 import FileNameDialog from "./FileNameDialog";
 import { Button } from "./ui/button";
 import { ToastAction } from "./ui/toast";
