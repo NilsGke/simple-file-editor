@@ -70,7 +70,7 @@ export default function DropZone({
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       className={twMerge(
-        "flex items-center justify-center col-span-2 border border-dashed rounded-lg text-zinc-400",
+        "flex items-center justify-center col-span-2 transition border border-dashed rounded-lg text-zinc-400",
         dragging && "border-solid text-zinc-300 bg-zinc-100"
       )}
     >
