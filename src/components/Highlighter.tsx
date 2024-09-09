@@ -1,15 +1,32 @@
-import hljs from "highlight.js";
 import { useEffect, useState } from "react";
 import "highlight.js/styles/github.css";
+import HighlighterWorker from "@/workers/highlighter/highlighter?worker";
+import {
+  handleMessageFromWorker,
+  sendMessageToWorker,
+} from "@/workers/highlighter/communication";
 
 export default function Highlighter({ children }: { children: string }) {
-  const [highlightedHTML, setHighlightedHTML] = useState("");
+  const [highlightedHTML, setHighlightedHTML] = useState(children);
+  const [worker, setWorker] = useState<Worker | null>(null);
 
-  // highlight
+  // mout web worker
   useEffect(() => {
-    const { value } = hljs.highlightAuto(children);
-    setHighlightedHTML(value);
-  }, [children]);
+    const worker = new HighlighterWorker();
+    setWorker(worker);
+    worker.onmessage = (event) =>
+      handleMessageFromWorker(event, ({ type, data }) => {
+        if (type === "highlightResult") setHighlightedHTML(data);
+      });
+
+    return () => worker.terminate();
+  }, []);
+
+  // send highlight message
+  useEffect(() => {
+    if (worker === null) return;
+    sendMessageToWorker(worker, "pleaseHighlight", children);
+  }, [children, worker]);
 
   return (
     <div
