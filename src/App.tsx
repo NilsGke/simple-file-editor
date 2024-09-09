@@ -11,16 +11,25 @@ import {
 import RecentFiles from "./components/RecentFiles";
 import { LocalFileWithKey } from "./db/db";
 import useIDBQuery from "./db/lib/hooks/useIDBQuery";
-import { toast } from "./components/ui/use-toast";
+import { flushSync } from "react-dom";
 
 export default function App() {
   const [fileKey, setFileKey] = useState<LocalFileWithKey["key"] | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  function openFileFromKey(key: IDBValidKey) {
+    document.startViewTransition(() =>
+      flushSync(() => {
+        setEditorOpen(true);
+        setFileKey(key);
+      })
+    );
+  }
 
   const { data: fileEntry } = useIDBQuery({
     queryKey: ["fileQuery", fileKey],
     queryFn: (db) =>
       new Promise<LocalFileWithKey | null>((resolve, reject) => {
-        console.log("refetch", fileKey);
         if (fileKey === null) return resolve(null);
         const request = db
           .transaction("files", "readonly")
@@ -32,33 +41,14 @@ export default function App() {
       }),
   });
 
-  const [fileContents, setFileContents] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("unnamed File");
 
-  // read initial file contents
+  // set filename for editor
   useEffect(() => {
-    if (fileEntry)
-      (async () => {
-        const file = await fileEntry.fileHandle.getFile().catch((error) => {
-          console.log(typeof error, { error });
-          if (error.name.includes("NotFoundError"))
-            toast({
-              title: "File not found!",
-              description:
-                "The file has probably been moved or deleted from your filesystem.",
-              variant: "destructive",
-            });
-          throw Error(error);
-        });
-        const contents = await file.text();
-        setFileName(file.name);
-        setFileContents(contents);
-      })();
+    if (fileEntry) setFileName(fileEntry.name);
   }, [fileEntry]);
 
-  console.log({ fileKey, fileEntry, fileContents });
-
-  if (!fileKey)
+  if (!fileKey || editorOpen === false)
     return (
       <div className="flex flex-row flex-wrap items-center content-center justify-center gap-6 size-full">
         <Card key="chooseAFile" className="shadow min-w-80">
@@ -67,22 +57,28 @@ export default function App() {
             <CardDescription>Only ASCII Files supported</CardDescription>
           </CardHeader>
           <CardContent>
-            <FileChooser setFileKey={(fileKey) => setFileKey(fileKey)} />
+            <FileChooser setFileKey={openFileFromKey} />
           </CardContent>
-          {/* <CardFooter></CardFooter> */}
         </Card>
-        <RecentFiles setFileKey={setFileKey} />
+        <RecentFiles setFileKey={openFileFromKey} />
       </div>
     );
 
-  if (fileKey !== undefined)
+  if (fileKey !== undefined && editorOpen)
     return (
       <Editor
+        fileKey={fileKey}
         fileHandle={fileEntry?.fileHandle || null}
         fileName={fileName}
-        closeFile={() => {
-          setFileContents(null);
+        lastOpened={fileEntry?.lastOpened}
+        closeFile={async () => {
+          const transition = document.startViewTransition(() =>
+            flushSync(() => setEditorOpen(false))
+          );
+
+          await transition.finished;
           setFileKey(null);
+          setFileName("unnamed File");
         }}
       />
     );

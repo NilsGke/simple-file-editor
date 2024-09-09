@@ -195,13 +195,14 @@ export default function RecentFiles({
                     : file.key
                 }
                 file={{
+                  key: file.key,
                   name: file.name,
                   lastOpened: file.lastOpened,
                 }}
                 open={async () => {
-                  await checkExistance(file);
                   await requestPermission(file.fileHandle);
-                  setFileKey(file.key);
+                  await checkExistance(file);
+                  document.startViewTransition(() => setFileKey(file.key));
                 }}
               />
             ))}
@@ -216,6 +217,7 @@ function RecentFile({
   open,
 }: {
   file?: {
+    key: LocalFileWithKey["key"];
     name: LocalFile["name"];
     lastOpened: LocalFile["lastOpened"];
   };
@@ -227,14 +229,40 @@ function RecentFile({
       className="w-auto h-auto p-0"
       onClick={file && open && open}
     >
-      <Card className="bg-transparent">
-        <CardHeader className="p-2">
+      <Card
+        className="bg-transparent"
+        style={{
+          viewTransitionName: file
+            ? `container-${String(file.key)}`
+            : undefined,
+        }}
+      >
+        <CardHeader
+          className="p-2"
+          style={{
+            viewTransitionName: file ? `filename-${file.key}` : undefined,
+          }}
+        >
           {!file && <Skeleton className="w-[90px] h-4" />}
           {file?.name}
         </CardHeader>
-        <CardFooter className="p-2 pt-0 text-xs">
+        <CardFooter
+          className="p-2 pt-0 text-xs"
+          style={{
+            viewTransitionName: file
+              ? `lastOpened-${String(file.key)}`
+              : undefined,
+          }}
+        >
           {!file && <Skeleton className="w-[60px] h-4" />}
-          {file && new Date(file.lastOpened).toLocaleTimeString()}
+          {file &&
+            new Date(file.lastOpened).toLocaleDateString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })}
         </CardFooter>
       </Card>
     </Button>

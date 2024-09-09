@@ -12,12 +12,16 @@ enum FileState {
 }
 
 export default function Editor({
+  fileKey,
   fileName,
   fileHandle,
+  lastOpened,
   closeFile,
 }: {
+  fileKey: IDBValidKey;
   fileName: string;
   fileHandle: FileSystemFileHandle | null;
+  lastOpened?: number;
   closeFile: () => void;
 }) {
   const [fileContents, setFileContents] = useState<string | null>(null);
@@ -101,9 +105,17 @@ export default function Editor({
 
   return (
     <div className="p-2 size-full">
-      <div className="grid grid-rows-[min-content_auto] size-full rounded-md border shadow">
+      <div
+        className="grid grid-rows-[min-content_auto] size-full rounded-md border shadow"
+        style={{ viewTransitionName: `container-${String(fileKey)}` }}
+      >
         <div className="flex items-center w-full gap-2 p-2 border-b rounded-t-md">
-          <div className="mx-4">{fileName}</div>
+          <div
+            className="mx-4"
+            style={{ viewTransitionName: `filename-${String(fileKey)}` }}
+          >
+            {fileName}
+          </div>
           <Button onClick={closeFile} variant="outline">
             Close
           </Button>
@@ -135,6 +147,16 @@ export default function Editor({
               "Error"
             )}
           </Button>
+          <div>
+            {lastOpened &&
+              new Date(lastOpened).toLocaleDateString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })}
+          </div>
         </div>
         <div className="grid grid-cols-[min-content_auto] overflow-y-scroll">
           {/* line numbers */}
