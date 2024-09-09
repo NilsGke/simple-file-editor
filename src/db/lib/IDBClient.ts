@@ -71,9 +71,7 @@ export class IDBClient {
 
   initIndexedDB(DB_VERSION: number, migrations: IDBMigrationFunction[]) {
     return new Promise<void>((resolve) => {
-      console.log("initiating indexeddb");
       getCurrentDBVersion(this.#dbName).then(async (currentVersion) => {
-        console.log("current db version: ", currentVersion);
         await upgradeDB(this.#dbName, currentVersion, migrations);
 
         const request = window.indexedDB.open(this.#dbName, DB_VERSION);

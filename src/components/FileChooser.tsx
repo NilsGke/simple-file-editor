@@ -57,7 +57,6 @@ export default function FileChooser({
     const existingDBEntry = await findFileInDb(db, fileHandle).catch(
       () => null
     );
-    console.log("need to handle existing file", existingDBEntry);
 
     await managePermission(fileHandle);
 
@@ -67,10 +66,8 @@ export default function FileChooser({
         lastOpened: Date.now(),
         name: (await fileHandle.getFile()).name,
       });
-      console.log("generated new entry: ", key);
       setFileKey(key);
     } else {
-      console.log("found existing key", existingDBEntry.key);
       setFileKey(existingDBEntry.key);
     }
   };
@@ -120,7 +117,6 @@ export default function FileChooser({
       // need to prompt for permission
       requestPermission(file)
         .then(() => {
-          console.log("granted");
           dismiss();
           resolve();
         })

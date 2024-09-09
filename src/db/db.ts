@@ -14,17 +14,13 @@ export const migrations: IDBMigrationFunction[] = [
   // add files Store
   (db) =>
     new Promise<void>((resolve, reject) => {
-      console.log("migration 2");
       const objectStore = db.createObjectStore("files", {
         autoIncrement: true,
       });
 
       objectStore.createIndex("lastOpened", "lastOpened", { multiEntry: true });
 
-      objectStore.transaction.oncomplete = () => {
-        console.log("finished migration 5");
-        resolve();
-      };
+      objectStore.transaction.oncomplete = () => resolve();
       objectStore.transaction.onerror = reject;
     }),
 ];
@@ -92,7 +88,6 @@ export const findFileInDb = (
         for (let i = 0; i <= entries.length; i++) {
           const entry = entries[i];
           if (await entry.fileHandle.isSameEntry(fileHandle)) {
-            console.log("FOUND MATCH", { entry, fileHandle });
             resolve({ ...entry, key: keys[i] });
             return;
           }

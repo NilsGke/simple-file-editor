@@ -23,9 +23,7 @@ export const initIndexedDB = (
 ) =>
   new Promise<IDBDatabase>((resolve) => {
     let db: IDBDatabase;
-    console.log("initiating indexeddb");
     getCurrentDBVersion(DB_NAME).then(async (currentVersion) => {
-      console.log("starting upgrades");
       await upgradeDB(DB_NAME, currentVersion, migrations);
 
       const request = window.indexedDB.open(DB_NAME, DB_VERSION);
@@ -64,12 +62,9 @@ export const upgradeDB = async (
 ) => {
   const targetVersion = migrations.length;
   if (targetVersion > currentVersion) {
-    console.log("UPGRADE");
-
     await migrateDB(DB_NAME, migrations, currentVersion + 1);
-    console.log("migration done");
+
     const newVersion = await getCurrentDBVersion(DB_NAME);
-    console.log("fireing next upgrade");
 
     await upgradeDB(DB_NAME, newVersion, migrations);
   }
