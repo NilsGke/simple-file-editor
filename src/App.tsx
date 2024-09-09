@@ -8,78 +8,81 @@ import {
   CardDescription,
   CardContent,
 } from "./components/ui/card";
+import RecentFiles from "./components/RecentFiles";
+import { LocalFileWithKey } from "./db/db";
+import useIDBQuery from "./db/lib/hooks/useIDBQuery";
+import { toast } from "./components/ui/use-toast";
 
 export default function App() {
-  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(
-    null
-  );
+  const [fileKey, setFileKey] = useState<LocalFileWithKey["key"] | null>(null);
 
-  useEffect(() => {
-    if (fileHandle !== null) console.log("got File handle", fileHandle);
-  }, [fileHandle]);
+  const { data: fileEntry } = useIDBQuery({
+    queryKey: ["fileQuery", fileKey],
+    queryFn: (db) =>
+      new Promise<LocalFileWithKey | null>((resolve, reject) => {
+        console.log("refetch", fileKey);
+        if (fileKey === null) return resolve(null);
+        const request = db
+          .transaction("files", "readonly")
+          .objectStore("files")
+          .get(fileKey);
+
+        request.onsuccess = () => resolve(request.result as LocalFileWithKey);
+        request.onerror = () => reject(request.error);
+      }),
+  });
 
   const [fileContents, setFileContents] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("unnamed File");
 
   // read initial file contents
   useEffect(() => {
-    if (fileHandle)
+    if (fileEntry)
       (async () => {
-        const file = await fileHandle.getFile();
+        const file = await fileEntry.fileHandle.getFile().catch((error) => {
+          console.log(typeof error, { error });
+          if (error.name.includes("NotFoundError"))
+            toast({
+              title: "File not found!",
+              description:
+                "The file has probably been moved or deleted from your filesystem.",
+              variant: "destructive",
+            });
+          throw Error(error);
+        });
         const contents = await file.text();
         setFileName(file.name);
         setFileContents(contents);
       })();
-  }, [fileHandle]);
+  }, [fileEntry]);
 
-  if (fileHandle === null)
+  console.log({ fileKey, fileEntry, fileContents });
+
+  if (!fileKey)
     return (
-      fileHandle === null && (
-        <div className="flex flex-col items-center justify-center gap-2 size-full">
-          <Card className="shadow">
-            <CardHeader>
-              <CardTitle>Choose a File</CardTitle>
-              <CardDescription>Only ASCII Files supported</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FileChooser setFileHandle={setFileHandle} />
-            </CardContent>
-            {/* <CardFooter></CardFooter> */}
-          </Card>
-        </div>
-      )
+      <div className="flex flex-row flex-wrap items-center content-center justify-center gap-6 size-full">
+        <Card key="chooseAFile" className="shadow min-w-80">
+          <CardHeader>
+            <CardTitle>Choose a File</CardTitle>
+            <CardDescription>Only ASCII Files supported</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FileChooser setFileKey={(fileKey) => setFileKey(fileKey)} />
+          </CardContent>
+          {/* <CardFooter></CardFooter> */}
+        </Card>
+        <RecentFiles setFileKey={setFileKey} />
+      </div>
     );
 
-  if (fileHandle !== null && fileContents === null)
-    return <div>loading File Contents...</div>;
-
-  if (fileHandle !== null && fileContents !== null)
+  if (fileKey !== undefined)
     return (
       <Editor
+        fileHandle={fileEntry?.fileHandle || null}
         fileName={fileName}
-        initialFileContents={fileContents}
         closeFile={() => {
           setFileContents(null);
-          setFileHandle(null);
-        }}
-        saveFile={async (content) => {
-          const writable = await fileHandle
-            .createWritable({
-              keepExistingData: false,
-            })
-            .catch((reason) => {
-              console.error(reason);
-              throw "could not create writable";
-            });
-          await writable.write(content).catch((reason) => {
-            console.error(reason);
-            throw "could not write to file";
-          });
-
-          await writable.close().catch((reason) => {
-            console.error(reason);
-            throw `Error: ${reason}`;
-          });
+          setFileKey(null);
         }}
       />
     );

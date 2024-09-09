@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Highlighter from "./Highlighter";
 import { Button } from "./ui/button";
-import { toast } from "./ui/use-toast";
+import { useToast } from "./ui/use-toast";
+import { ToastAction } from "./ui/toast";
 
 enum FileState {
   SAVED = "SAVED",
@@ -11,19 +12,29 @@ enum FileState {
 }
 
 export default function Editor({
-  initialFileContents,
   fileName,
+  fileHandle,
   closeFile,
-  saveFile,
 }: {
-  initialFileContents: string;
   fileName: string;
+  fileHandle: FileSystemFileHandle | null;
   closeFile: () => void;
-  saveFile: (content: string) => Promise<void>;
 }) {
-  const [fileContents, setFileContents] = useState<string>(initialFileContents);
+  const [fileContents, setFileContents] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [fileState, setFileState] = useState<FileState>(FileState.SAVED);
+
+  const { dismiss, toast } = useToast();
+
+  // load initial file contents
+  useEffect(() => {
+    if (fileHandle === null || fileContents !== null) return;
+
+    fileHandle
+      .getFile()
+      .then((file) => file.text())
+      .then((content) => setFileContents(content));
+  }, [fileContents, fileHandle]);
 
   useEffect(() => {
     // content changed by user -> need to save
@@ -37,7 +48,56 @@ export default function Editor({
     textareaRef.current.style.width = textareaRef.current.scrollWidth + "px";
   }, [textareaRef, fileContents]);
 
-  const lineCount = fileContents.split(/\r\n|\r|\n/).length;
+  const saveFile = async () => {
+    dismiss();
+    // handle file not loaded state
+    if (fileHandle === null || fileContents === null)
+      return toast({
+        title: "File not loaded yet",
+        action: (
+          <ToastAction altText="try again" onClick={saveFile}>
+            try again
+          </ToastAction>
+        ),
+        variant: "destructive",
+      });
+
+    const writable = await fileHandle
+      .createWritable({
+        keepExistingData: false,
+      })
+      .catch((reason) => {
+        console.error(reason);
+        throw "could not create writable";
+      });
+
+    toast({
+      title: "Saving file...",
+      action: (
+        <ToastAction
+          altText="cancel saving file"
+          onClick={() => {
+            writable.abort();
+            writable.close();
+          }}
+        >
+          cancel
+        </ToastAction>
+      ),
+    });
+
+    await writable.write(fileContents).catch((reason) => {
+      console.error(reason);
+      throw "could not write to file";
+    });
+
+    await writable.close().catch((reason) => {
+      console.error(reason);
+      throw `Error: ${reason}`;
+    });
+  };
+
+  const lineCount = fileContents?.split(/\r\n|\r|\n/).length || 0;
 
   return (
     <div className="p-2 size-full">
@@ -50,7 +110,7 @@ export default function Editor({
           <Button
             onClick={() => {
               setFileState(FileState.SAVING);
-              saveFile(fileContents)
+              saveFile()
                 .then(() => {
                   setFileState(FileState.SAVED);
                   toast({
@@ -100,13 +160,20 @@ export default function Editor({
               );
             }}
           >
-            <Highlighter>{fileContents}</Highlighter>
-            <textarea
-              ref={textareaRef}
-              onChange={(e) => setFileContents(e.target.value)}
-              className="relative z-10 w-full h-full p-2 overflow-hidden font-mono text-base text-transparent whitespace-pre bg-transparent outline-none resize-none caret-black"
-              value={fileContents}
-            />
+            {fileContents === null && (
+              <div className="text-center">Loading file...</div>
+            )}
+            {fileContents !== null && (
+              <>
+                <Highlighter>{fileContents}</Highlighter>
+                <textarea
+                  ref={textareaRef}
+                  onChange={(e) => setFileContents(e.target.value)}
+                  className="relative z-10 w-full h-full p-2 overflow-hidden font-mono text-base text-transparent whitespace-pre bg-transparent outline-none resize-none caret-black"
+                  value={fileContents}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

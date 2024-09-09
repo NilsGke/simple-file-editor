@@ -3,9 +3,9 @@ import { twMerge } from "tailwind-merge";
 import { useToast } from "./ui/use-toast";
 
 export default function DropZone({
-  setFileHandle,
+  processFileHandle,
 }: {
-  setFileHandle: (fileHandle: FileSystemFileHandle) => void;
+  processFileHandle: (fileHandle: FileSystemFileHandle) => void;
 }) {
   const { toast } = useToast();
   const [dragging, setDragging] = useState(false);
@@ -58,7 +58,7 @@ export default function DropZone({
     }
 
     if (fileHandle.kind === "file")
-      setFileHandle(fileHandle as FileSystemFileHandle);
+      processFileHandle(fileHandle as FileSystemFileHandle);
   };
 
   return (
