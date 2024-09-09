@@ -19,7 +19,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["@types/wicg-file-system-access"],
+    "types": ["@types/wicg-file-system-access", "@types/dom-view-transitions"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
