@@ -5,10 +5,10 @@ import {
   handleMessageFromWorker,
   sendMessageToWorker,
 } from "@/workers/highlighter/communication";
+import escapeHTML from "@/helpers/escapeHTML";
 
 export default function Highlighter({ children }: { children: string }) {
-  const [highlightedHTML, setHighlightedHTML] = useState(children);
-  const [worker, setWorker] = useState<Worker | null>(null);
+  const [highlightedHTML, setHighlightedHTML] = useState(escapeHTML(children));
 
   // mout web worker
   useEffect(() => {
