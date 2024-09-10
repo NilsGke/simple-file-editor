@@ -30,7 +30,7 @@ export default function Highlighter({ children }: { children: string }) {
 
   return (
     <div
-      className="absolute z-0 p-2 font-mono text-base whitespace-pre"
+      className="relative z-0 p-2 font-mono text-base whitespace-pre"
       dangerouslySetInnerHTML={{ __html: highlightedHTML }}
     ></div>
   );

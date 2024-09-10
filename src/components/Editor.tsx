@@ -137,7 +137,7 @@ export default function Editor({
             {fileState === FileState.UNSAVED ? (
               <div className="flex items-center justify-center gap-2">
                 Save{" "}
-                <span className="bg-white rounded-full size-2 aspect-square" />
+                <span className="bg-white rounded-full dark:bg-black size-2 aspect-square" />
               </div>
             ) : fileState === FileState.SAVED ? (
               "Saved"
@@ -187,13 +187,13 @@ export default function Editor({
             )}
             {fileContents !== null && (
               <>
-                <Highlighter>{fileContents}</Highlighter>
                 <textarea
                   ref={textareaRef}
                   onChange={(e) => setFileContents(e.target.value)}
-                  className="relative z-10 w-full h-full p-2 overflow-hidden font-mono text-base text-transparent whitespace-pre bg-transparent outline-none resize-none caret-black"
+                  className="absolute z-10 w-full h-full p-2 overflow-hidden font-mono text-base text-transparent whitespace-pre bg-transparent outline-none resize-none caret-black dark:caret-white"
                   value={fileContents}
                 />
+                <Highlighter>{fileContents}</Highlighter>
               </>
             )}
           </div>
