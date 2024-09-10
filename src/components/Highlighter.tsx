@@ -1,32 +1,33 @@
 import { useEffect, useState } from "react";
-import "highlight.js/styles/github.css";
-import HighlighterWorker from "@/workers/highlighter/highlighter?worker";
-import {
+import "highlight.js/styles/github-dark.css";
+import worker, {
   handleMessageFromWorker,
   sendMessageToWorker,
 } from "@/workers/highlighter/communication";
 import escapeHTML from "@/helpers/escapeHTML";
+// TODO: use the div as the edit area and use contenteditable together with mutation observer to provide the edit functionality
+// https://stackoverflow.com/a/14043919/10429375
+// then have some system in place to check if a change happend while highlighting was in progress
+// then only apply highlighting if no changes happend inbetween
+// this way the user does not notice that their text that tey are editing is replaced with highlighted text
+// benifit: no delay between user input and text appearing
 
 export default function Highlighter({ children }: { children: string }) {
   const [highlightedHTML, setHighlightedHTML] = useState(escapeHTML(children));
 
   // mout web worker
   useEffect(() => {
-    const worker = new HighlighterWorker();
-    setWorker(worker);
     worker.onmessage = (event) =>
       handleMessageFromWorker(event, ({ type, data }) => {
         if (type === "highlightResult") setHighlightedHTML(data);
       });
-
-    return () => worker.terminate();
   }, []);
 
   // send highlight message
   useEffect(() => {
     if (worker === null) return;
     sendMessageToWorker(worker, "pleaseHighlight", children);
-  }, [children, worker]);
+  }, [children]);
 
   return (
     <div

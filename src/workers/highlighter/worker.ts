@@ -9,6 +9,10 @@ onmessage = (event) =>
         sendMessageToClient("highlightResult", highlighted.value);
         break;
       }
+      case "ping": {
+        sendMessageToClient("pong", undefined);
+        break;
+      }
       default:
         console.warn("no worker handle code found for message: ", type);
         break;

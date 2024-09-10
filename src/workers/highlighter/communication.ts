@@ -1,5 +1,7 @@
-type WorkerMessageMap = { highlightResult: string };
-type ClientMessageMap = { pleaseHighlight: string };
+import HighlighterWorker from "@/workers/highlighter/worker?worker";
+
+type WorkerMessageMap = { highlightResult: string; pong: void };
+type ClientMessageMap = { pleaseHighlight: string; ping: void };
 
 type WorkerMessage<K extends keyof WorkerMessageMap> = {
   type: K;
@@ -37,3 +39,6 @@ export const sendMessageToClient = <T extends keyof WorkerMessageMap>(
   type: T,
   data: WorkerMessageMap[T]
 ) => postMessage({ type, data });
+
+const worker = new HighlighterWorker();
+export default worker;
