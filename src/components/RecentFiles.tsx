@@ -22,6 +22,7 @@ import { useToast } from "./ui/use-toast";
 import { ToastAction } from "./ui/toast";
 import useIDB from "@/db/lib/hooks/useIDB";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
+import RelativeTime from "./RelativeTime";
 
 export default function RecentFiles({
   setFileKey,
@@ -202,7 +203,9 @@ export default function RecentFiles({
                 open={async () => {
                   await requestPermission(file.fileHandle);
                   await checkExistance(file);
-                  document.startViewTransition(() => setFileKey(file.key));
+                  document
+                    .startViewTransition(() => setFileKey(file.key))
+                    .finished.then(() => dismiss());
                 }}
               />
             ))}
@@ -255,14 +258,7 @@ function RecentFile({
           }}
         >
           {!file && <Skeleton className="w-[60px] h-4" />}
-          {file &&
-            new Date(file.lastOpened).toLocaleDateString(undefined, {
-              hour: "2-digit",
-              minute: "2-digit",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })}
+          {file && <RelativeTime time={file.lastOpened} />}
         </CardFooter>
       </Card>
     </Button>

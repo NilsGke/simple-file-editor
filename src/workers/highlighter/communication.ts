@@ -1,7 +1,16 @@
-import HighlighterWorker from "@/workers/highlighter/worker?worker";
+import { AutoHighlightResult } from "highlight.js";
 
-type WorkerMessageMap = { highlightResult: string; pong: void };
-type ClientMessageMap = { pleaseHighlight: string; ping: void };
+type WorkerMessageMap = {
+  highlightResult: {
+    result: Pick<AutoHighlightResult, "value" | "language">;
+    timestamp: number;
+  };
+  pong: void;
+};
+type ClientMessageMap = {
+  highlightTask: { timestamp: number; content: string };
+  ping: void;
+};
 
 type WorkerMessage<K extends keyof WorkerMessageMap> = {
   type: K;
@@ -39,6 +48,3 @@ export const sendMessageToClient = <T extends keyof WorkerMessageMap>(
   type: T,
   data: WorkerMessageMap[T]
 ) => postMessage({ type, data });
-
-const worker = new HighlighterWorker();
-export default worker;

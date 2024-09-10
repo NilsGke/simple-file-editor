@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Highlighter from "./Highlighter";
 import { Button } from "./ui/button";
 import { useToast } from "./ui/use-toast";
 import { ToastAction } from "./ui/toast";
+import RelativeTime from "./RelativeTime";
 
 enum FileState {
   SAVED = "SAVED",
@@ -25,8 +26,15 @@ export default function Editor({
   closeFile: () => void;
 }) {
   const [fileContents, setFileContents] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [fileState, setFileState] = useState<FileState>(FileState.SAVED);
+
+  // const [selectedLanguage, setSelectedLanguage] = useState<
+  //   string | "autodetect" | null
+  // >(null);
+  const [highlightInfo, setHighlightInfo] = useState<{
+    usedLanguage: string | null;
+    highlightTime: number;
+  } | null>(null);
 
   const { dismiss, toast } = useToast();
 
@@ -40,18 +48,12 @@ export default function Editor({
       .then((content) => setFileContents(content));
   }, [fileContents, fileHandle]);
 
+  // update save state on content change
   useEffect(() => {
-    // content changed by user -> need to save
     setFileState(FileState.UNSAVED);
+  }, [fileContents]);
 
-    // resize textarea
-    if (textareaRef.current === null) return;
-    textareaRef.current.style.height = "auto";
-    textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
-    textareaRef.current.style.width = "auto";
-    textareaRef.current.style.width = textareaRef.current.scrollWidth + "px";
-  }, [textareaRef, fileContents]);
-
+  // TODO: update lastSaved
   const saveFile = async () => {
     dismiss();
     // handle file not loaded state
@@ -110,11 +112,19 @@ export default function Editor({
         style={{ viewTransitionName: `container-${String(fileKey)}` }}
       >
         <div className="flex items-center w-full gap-2 p-2 border-b rounded-t-md">
-          <div
-            className="mx-4"
-            style={{ viewTransitionName: `filename-${String(fileKey)}` }}
-          >
-            {fileName}
+          <div className="grid grid-rows-2">
+            <div
+              className="mx-4"
+              style={{ viewTransitionName: `filename-${String(fileKey)}` }}
+            >
+              {fileName}
+            </div>
+            <div
+              className="text-xs text-zinc-400 dark:text-zinc-600"
+              style={{ viewTransitionName: `lastOpened-${String(fileKey)}` }}
+            >
+              {lastOpened && <RelativeTime time={lastOpened} />}
+            </div>
           </div>
           <Button onClick={closeFile} variant="outline">
             Close
@@ -147,15 +157,10 @@ export default function Editor({
               "Error"
             )}
           </Button>
+
           <div>
-            {lastOpened &&
-              new Date(lastOpened).toLocaleDateString(undefined, {
-                hour: "2-digit",
-                minute: "2-digit",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
+            highlighted: {highlightInfo?.usedLanguage} in{" "}
+            {highlightInfo && Math.abs(highlightInfo.highlightTime)}ms
           </div>
         </div>
         <div className="grid grid-cols-[min-content_auto] overflow-y-scroll">
@@ -168,33 +173,16 @@ export default function Editor({
           </div>
 
           {/* actual editor */}
-          <div
-            className="relative overflow-x-auto overflow-y-hidden"
-            onClick={(e) => {
-              if (textareaRef.current === null) return;
-              if (textareaRef.current === document.activeElement) return;
-              if (!(e.target as HTMLDivElement).contains(textareaRef.current))
-                return;
-              textareaRef.current.focus();
-              textareaRef.current.setSelectionRange(
-                textareaRef.current.value.length,
-                textareaRef.current.value.length
-              );
-            }}
-          >
+          <div className="relative overflow-x-auto overflow-y-hidden">
             {fileContents === null && (
               <div className="text-center">Loading file...</div>
             )}
             {fileContents !== null && (
-              <>
-                <textarea
-                  ref={textareaRef}
-                  onChange={(e) => setFileContents(e.target.value)}
-                  className="absolute z-10 w-full h-full p-2 overflow-hidden font-mono text-base text-transparent whitespace-pre bg-transparent outline-none resize-none caret-black dark:caret-white"
-                  value={fileContents}
-                />
-                <Highlighter>{fileContents}</Highlighter>
-              </>
+              <Highlighter
+                content={fileContents}
+                onChange={setFileContents}
+                updateHighlightInfo={setHighlightInfo}
+              />
             )}
           </div>
         </div>
