@@ -1,20 +1,24 @@
-import { addFileToDb, findFileInDb, LocalFileWithKey } from "@/db/db";
+import {
+  addDirectoryToDb,
+  findDirectoryInDb,
+  LocalDirectory,
+  WithKey,
+} from "@/db/db";
 import DropZone from "./DropZone";
-import FileNameDialog from "./FileNameDialog";
 import { Button } from "./ui/button";
 import { ToastAction } from "./ui/toast";
 import { useToast } from "./ui/use-toast";
 import useIDB from "@/db/lib/hooks/useIDB";
 
-export default function FileChooser({
-  setFileKey,
+export default function DirectoryChooser({
+  setDirectoryKey,
 }: {
-  setFileKey: (fileKey: LocalFileWithKey["key"]) => void;
+  setDirectoryKey: (directoryKey: WithKey<LocalDirectory>["key"]) => void;
 }) {
   const db = useIDB();
   const { toast, dismiss } = useToast();
 
-  const openFile = async () => {
+  const openDirectory = async () => {
     dismiss();
 
     if (db === null) {
@@ -23,7 +27,7 @@ export default function FileChooser({
         title: "IndexedDB not avalible",
         description: "Please wait for migrations to finish and try again",
         action: (
-          <ToastAction altText="retry" onClick={openFile}>
+          <ToastAction altText="retry" onClick={openDirectory}>
             retry
           </ToastAction>
         ),
@@ -31,81 +35,49 @@ export default function FileChooser({
       return;
     }
 
-    // get file
-    const [fileHandle] = await window
-      .showOpenFilePicker({ multiple: false })
+    const directoryHandle = await window
+      .showDirectoryPicker({})
       .catch((reason) => {
         toast({ title: "No file selected", variant: "destructive" });
         throw reason;
       });
 
-    if (fileHandle === undefined) {
+    if (directoryHandle === undefined) {
       toast({
-        title: "No File selected!",
+        title: "No Directory selected!",
         variant: "destructive",
       });
       return;
     }
 
-    handleExistingFile(fileHandle, db);
+    handleExistingDirectory(directoryHandle, db);
   };
 
-  const handleExistingFile = async (
-    fileHandle: FileSystemFileHandle,
-    db: IDBDatabase
+  const handleExistingDirectory = async (
+    directoryHandle: FileSystemDirectoryHandle,
+    db: IDBDatabase,
   ) => {
-    const existingDBEntry = await findFileInDb(db, fileHandle).catch(
-      () => null
+    const existingDBEntry = await findDirectoryInDb(db, directoryHandle).catch(
+      () => null,
     );
 
-    await managePermission(fileHandle);
+    await managePermission(directoryHandle);
 
     if (existingDBEntry === null) {
-      const key = await addFileToDb(db, {
-        fileHandle,
+      const key = await addDirectoryToDb(db, {
+        handle: directoryHandle,
         lastOpened: Date.now(),
-        name: (await fileHandle.getFile()).name,
+        name: directoryHandle.name,
       });
-      setFileKey(key);
+      setDirectoryKey(key);
     } else {
-      setFileKey(existingDBEntry.key);
+      setDirectoryKey(existingDBEntry.key);
     }
   };
 
-  const newFile = async (fileName: string) => {
-    dismiss();
-
-    if (db === null) {
-      toast({
-        variant: "destructive",
-        title: "IndexedDB not avalible",
-        description: "Please wait for migrations to finish and try again",
-        action: (
-          <ToastAction altText="retry" onClick={() => newFile(fileName)}>
-            retry
-          </ToastAction>
-        ),
-      });
-      return;
-    }
-
-    const fileHandle = await window.showSaveFilePicker({
-      suggestedName: fileName,
-    });
-
-    const key = await addFileToDb(db, {
-      fileHandle,
-      lastOpened: Date.now(),
-      name: fileName,
-    });
-
-    managePermission(fileHandle);
-    setFileKey(key);
-  };
-
-  const managePermission = async (file: FileSystemFileHandle) => {
+  const managePermission = async (directory: FileSystemDirectoryHandle) => {
     // check / get permissions
-    const perms = await file.queryPermission({ mode: "readwrite" });
+    const perms = await directory.queryPermission({ mode: "readwrite" });
     return new Promise<void>((resolve, reject) => {
       if (perms === "denied") {
         toast({ title: "Permission Denied!", variant: "destructive" });
@@ -115,7 +87,7 @@ export default function FileChooser({
       if (perms === "granted") return resolve();
 
       // need to prompt for permission
-      requestPermission(file)
+      requestPermission(directory)
         .then(() => {
           dismiss();
           resolve();
@@ -124,57 +96,58 @@ export default function FileChooser({
     });
   };
 
-  const requestPermission = (file: FileSystemFileHandle) => {
+  const requestPermission = (directory: FileSystemDirectoryHandle) => {
     dismiss();
     toast({
       title: "Please grant premission to read and write the File",
     });
     return new Promise<void>((resolve) =>
-      file.requestPermission({ mode: "readwrite" }).then((permissionState) => {
-        if (permissionState === "granted") resolve();
-        else {
-          toast({
-            title: "Permission denied!",
-            description: "Please accept read/write permission!",
-            variant: "destructive",
-            action: (
-              <ToastAction
-                altText="retry"
-                onClick={() => {
-                  dismiss();
-                  requestPermission(file).then(resolve);
-                }}
-              >
-                retry
-              </ToastAction>
-            ),
-          });
-          console.error("File permissions denied on prompt");
-        }
-      })
+      directory
+        .requestPermission({ mode: "readwrite" })
+        .then((permissionState) => {
+          if (permissionState === "granted") resolve();
+          else {
+            toast({
+              title: "Permission denied!",
+              description: "Please accept read/write permission!",
+              variant: "destructive",
+              action: (
+                <ToastAction
+                  altText="retry"
+                  onClick={() => {
+                    dismiss();
+                    requestPermission(directory).then(resolve);
+                  }}
+                >
+                  retry
+                </ToastAction>
+              ),
+            });
+            console.error("File permissions denied on prompt");
+          }
+        }),
     );
   };
 
   return (
     <div className="grid grid-cols-2 grid-rows-[1fr_1.5fr] gap-2">
-      <Button onClick={() => openFile()}>Choose File</Button>
-      <FileNameDialog trigger={<Button>New File</Button>} submit={newFile} />
+      <Button onClick={() => openDirectory()}>Choose directory</Button>
       <DropZone
-        processFileHandle={(fileHandle) => {
+        processDirectoryHandle={(fileHandle) => {
           if (db === null) {
             toast({
               variant: "destructive",
               title: "IndexedDB not avalible",
               description: "Please wait for migrations to finish and try again",
               action: (
-                <ToastAction altText="retry" onClick={openFile}>
+                <ToastAction altText="retry" onClick={openDirectory}>
                   retry
                 </ToastAction>
               ),
             });
             return;
           }
-          handleExistingFile(fileHandle, db);
+          handleExistingDirectory(fileHandle, db);
         }}
       />
     </div>

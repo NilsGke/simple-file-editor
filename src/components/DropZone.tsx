@@ -3,9 +3,9 @@ import { twMerge } from "tailwind-merge";
 import { useToast } from "./ui/use-toast";
 
 export default function DropZone({
-  processFileHandle,
+  processDirectoryHandle,
 }: {
-  processFileHandle: (fileHandle: FileSystemFileHandle) => void;
+  processDirectoryHandle: (fileHandle: FileSystemDirectoryHandle) => void;
 }) {
   const { toast } = useToast();
   const [dragging, setDragging] = useState(false);
@@ -31,34 +31,35 @@ export default function DropZone({
       return;
     }
 
+    // directory still counts as kind "file"
     if (item.kind !== "file") {
       toast({
-        title: "Not a file!",
+        title: "Not a Directory!",
         variant: "destructive",
       });
       return;
     }
 
-    const fileHandle = await item.getAsFileSystemHandle();
-    if (fileHandle === null) {
+    const fileSystemHandle = await item.getAsFileSystemHandle();
+    if (fileSystemHandle === null) {
       toast({
-        title: "Could not get fileHandle",
+        title: "Could not get fileSystemHandle",
         variant: "destructive",
       });
       return;
     }
 
-    if (fileHandle.kind === "directory") {
+    if (fileSystemHandle.kind === "file") {
       toast({
-        title: "Cannot open directories",
-        description: "Only files supported.",
+        title: "Please open a directory",
+        description: "Dont open files directly",
         variant: "destructive",
       });
       return;
     }
 
-    if (fileHandle.kind === "file")
-      processFileHandle(fileHandle as FileSystemFileHandle);
+    if (fileSystemHandle.kind === "directory")
+      processDirectoryHandle(fileSystemHandle as FileSystemDirectoryHandle);
   };
 
   return (
@@ -71,10 +72,10 @@ export default function DropZone({
       onDrop={onDrop}
       className={twMerge(
         "flex items-center justify-center col-span-2 transition border border-dashed rounded-lg text-zinc-400",
-        dragging && "border-solid text-zinc-300 bg-zinc-100"
+        dragging && "border-solid text-zinc-300 bg-zinc-100",
       )}
     >
-      Drop File
+      Drop Directory
     </div>
   );
 }

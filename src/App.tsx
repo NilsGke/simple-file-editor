@@ -1,85 +1,63 @@
-import { useEffect, useState } from "react";
-import FileChooser from "./components/FileChooser";
+import { useState } from "react";
+import DirectoryChooser from "./components/FileChooser";
 import Editor from "./components/Editor";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "./components/ui/card";
-import RecentFiles from "./components/RecentFiles";
-import { LocalFileWithKey } from "./db/db";
+import { Card, CardHeader, CardTitle, CardContent } from "./components/ui/card";
+import RecentDirectories from "./components/RecentDirectories";
+import { LocalDirectory, LocalFileWithKey, WithKey } from "./db/db";
 import useIDBQuery from "./db/lib/hooks/useIDBQuery";
-import { flushSync } from "react-dom";
+import FileTree from "./components/ui/FileTree";
+import TabBar from "./components/ui/TabBar";
 
 export default function App() {
-  const [fileKey, setFileKey] = useState<LocalFileWithKey["key"] | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [directoryKey, setDirectoryKey] = useState<
+    LocalFileWithKey["key"] | null
+  >(null);
 
-  function openFileFromKey(key: IDBValidKey) {
-    document.startViewTransition(() =>
-      flushSync(() => {
-        setEditorOpen(true);
-        setFileKey(key);
-      })
-    );
-  }
-
-  const { data: fileEntry } = useIDBQuery({
-    queryKey: ["fileQuery", fileKey],
+  const { data: directoryEntry } = useIDBQuery({
+    queryKey: ["directoryQuery", directoryKey],
     queryFn: (db) =>
-      new Promise<LocalFileWithKey | null>((resolve, reject) => {
-        if (fileKey === null) return resolve(null);
+      new Promise<WithKey<LocalDirectory> | null>((resolve, reject) => {
+        if (directoryKey === null) return resolve(null);
         const request = db
-          .transaction("files", "readonly")
-          .objectStore("files")
-          .get(fileKey);
+          .transaction("directories", "readonly")
+          .objectStore("directories")
+          .get(directoryKey);
 
-        request.onsuccess = () => resolve(request.result as LocalFileWithKey);
+        request.onsuccess = () =>
+          resolve({
+            key: directoryKey,
+            ...request.result,
+          });
         request.onerror = () => reject(request.error);
       }),
   });
 
-  const [fileName, setFileName] = useState<string>("unnamed File");
-
-  // set filename for editor
-  useEffect(() => {
-    if (fileEntry) setFileName(fileEntry.name);
-  }, [fileEntry]);
-
-  if (!fileKey || editorOpen === false)
+  if (!directoryKey)
     return (
       <div className="flex flex-row flex-wrap items-center content-center justify-center gap-6 size-full">
         <Card key="chooseAFile" className="shadow min-w-80">
           <CardHeader>
-            <CardTitle>Choose a File</CardTitle>
-            <CardDescription>Only ASCII Files supported</CardDescription>
+            <CardTitle>Open a Directory</CardTitle>
           </CardHeader>
           <CardContent>
-            <FileChooser setFileKey={openFileFromKey} />
+            <DirectoryChooser setDirectoryKey={setDirectoryKey} />
           </CardContent>
         </Card>
-        <RecentFiles setFileKey={openFileFromKey} />
+        <RecentDirectories setDirectoryKey={setDirectoryKey} />
       </div>
     );
 
-  if (fileKey !== undefined && editorOpen)
-    return (
-      <Editor
-        fileKey={fileKey}
-        fileHandle={fileEntry?.fileHandle || null}
-        fileName={fileName}
-        lastOpened={fileEntry?.lastOpened}
-        closeFile={async () => {
-          const transition = document.startViewTransition(() =>
-            flushSync(() => setEditorOpen(false))
-          );
+  if (directoryKey && !directoryEntry) <div>loading directory...</div>;
 
-          await transition.finished;
-          setFileKey(null);
-          setFileName("unnamed File");
-        }}
-      />
+  if (directoryKey && directoryEntry)
+    return (
+      <div className="py-4 h-screen gap-x-8 grid grid-cols-[auto,1fr] grid-rows-[auto,1fr]">
+        <div className="row-span-2 font-mono text-sm">
+          <FileTree directoryHandle={directoryEntry.handle!} />
+        </div>
+
+        <TabBar />
+        <Editor />
+      </div>
     );
 }

@@ -16,18 +16,23 @@ import {
 import { Button } from "./ui/button";
 import { twMerge } from "tailwind-merge";
 import useIDBStatus from "@/db/lib/hooks/useIDBStatus";
-import { LocalFile, LocalFileWithKey, removeFilefromDb } from "@/db/db";
+import {
+  LocalDirectory,
+  LocalFile,
+  LocalFileWithKey,
+  removeDirectoryFromDb,
+  WithKey,
+} from "@/db/db";
 import useIDBQuery from "@/db/lib/hooks/useIDBQuery";
 import { useToast } from "./ui/use-toast";
 import { ToastAction } from "./ui/toast";
 import useIDB from "@/db/lib/hooks/useIDB";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import RelativeTime from "./RelativeTime";
 
-export default function RecentFiles({
-  setFileKey,
+export default function RecentDirectories({
+  setDirectoryKey,
 }: {
-  setFileKey: (key: LocalFileWithKey["key"]) => void;
+  setDirectoryKey: (key: WithKey<LocalDirectory>["key"]) => void;
 }) {
   const { toast, dismiss } = useToast();
 
@@ -37,32 +42,34 @@ export default function RecentFiles({
   const [containerRef] = useAutoAnimate<HTMLDivElement>();
 
   const {
-    data: recentFiles,
+    data: recentDirectories,
     error,
     status,
     refetch,
   } = useIDBQuery({
-    queryKey: ["getAllFilesWithKey"],
+    queryKey: ["getAllDirectoriesWithKey"],
     queryFn: (db) =>
-      new Promise<LocalFileWithKey[]>((resolve, reject) => {
+      new Promise<WithKey<LocalDirectory>[]>((resolve, reject) => {
         if (db === null) return reject("db inaccessable");
 
         const request = db
-          .transaction("files", "readonly")
-          .objectStore("files")
+          .transaction("directories", "readonly")
+          .objectStore("directories")
           .openCursor();
 
-        const files: LocalFileWithKey[] = [];
+        const directories: WithKey<LocalDirectory>[] = [];
 
         request.onsuccess = () => {
           const cursor = request.result;
           if (cursor === null)
-            return resolve(files.sort((a, b) => b.lastOpened - a.lastOpened));
+            return resolve(
+              directories.sort((a, b) => b.lastOpened - a.lastOpened),
+            );
 
-          const file = cursor.value as LocalFile;
+          const directory = cursor.value as LocalDirectory;
           const key = cursor.key;
 
-          files.push({ ...file, key });
+          directories.push({ ...directory, key });
 
           cursor.continue();
         };
@@ -71,44 +78,49 @@ export default function RecentFiles({
       }),
   });
 
-  const checkExistance = async (fileEntry: LocalFileWithKey) => {
-    await fileEntry.fileHandle.getFile().catch((error) => {
-      if (error.name === "NotFoundError")
-        toast({
-          title: "File not found!",
-          description:
-            "The file has probably been moved or deleted from your filesystem.",
-          variant: "destructive",
-          action: (
-            <ToastAction
-              altText="remove file from recent files list"
-              onClick={() => {
-                if (db === null)
-                  return toast({
-                    title: "Database not loaded yet",
-                    description: "This sould not happen",
-                    variant: "destructive",
-                  });
-                removeFilefromDb(db, fileEntry.key).then(() => refetch());
-              }}
-            >
-              Remove File from "Recent Files"
-            </ToastAction>
-          ),
-        });
-      else
-        toast({
-          title: "Error",
-          description: String(error),
-          variant: "destructive",
-        });
-      throw Error(error);
-    });
-  };
+  const checkExistance = async (directoryEntry: WithKey<LocalDirectory>) =>
+    await directoryEntry.handle
+      .entries()
+      .next()
+      .catch((error) => {
+        console.error(error);
+        if (error.name === "NotFoundError")
+          toast({
+            title: "Directory not found!",
+            description:
+              "The directory has probably been moved or deleted from your filesystem.",
+            variant: "destructive",
+            action: (
+              <ToastAction
+                altText="remove directory from recents list"
+                onClick={() => {
+                  if (db === null)
+                    return toast({
+                      title: "Database not loaded yet",
+                      description: "This sould not happen",
+                      variant: "destructive",
+                    });
+                  removeDirectoryFromDb(db, directoryEntry.key).then(() =>
+                    refetch(),
+                  );
+                }}
+              >
+                Remove Directory from Recents list
+              </ToastAction>
+            ),
+          });
+        else
+          toast({
+            title: "Error",
+            description: String(error),
+            variant: "destructive",
+          });
+        throw Error(error);
+      });
 
-  const requestPermission = (fileHandle: FileSystemFileHandle) =>
-    new Promise<void>((resolve) => {
-      fileHandle
+  const requestPermission = (directoryHandle: FileSystemDirectoryHandle) =>
+    new Promise<void>((resolve) =>
+      directoryHandle
         .requestPermission({ mode: "readwrite" })
         .then((permissionState) => {
           if (permissionState === "granted") resolve();
@@ -122,23 +134,23 @@ export default function RecentFiles({
                   altText="retry"
                   onClick={() => {
                     dismiss();
-                    requestPermission(fileHandle).then(resolve);
+                    requestPermission(directoryHandle).then(resolve);
                   }}
                 >
                   retry
                 </ToastAction>
               ),
             });
-            console.error("File permissions denied on prompt");
+            console.error("Directory permissions denied on prompt");
           }
-        });
-    });
+        }),
+    );
 
   if (dbStatus !== "ready")
     return (
       <Card className="shadow min-w-96" key="migratingDB">
         <CardHeader>
-          <CardTitle>Recent Files</CardTitle>
+          <CardTitle>Recent Directories</CardTitle>
           <CardDescription>Migrating Local Database...</CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,13 +161,13 @@ export default function RecentFiles({
     );
 
   return (
-    <Card className="shadow w-96" key="recentFiles">
-      <CardHeader className="">
-        <CardTitle>Recent Files</CardTitle>
+    <Card className="shadow w-96" key="recentDirectories">
+      <CardHeader>
+        <CardTitle>Recent Directories</CardTitle>
         <CardDescription
           className={twMerge(status === "error" && "text-red-400")}
         >
-          {status === "pending" && "getting recent files..."}
+          {status === "pending" && "getting recent directories..."}
           {status === "error" && "Error!"}
         </CardDescription>
       </CardHeader>
@@ -186,7 +198,7 @@ export default function RecentFiles({
             Array.from(Array(3)).map((_, a) => <RecentFile key={a} />)}
 
           {status === "success" &&
-            recentFiles.map((file) => (
+            recentDirectories.map((file) => (
               <RecentFile
                 key={
                   typeof file.key !== "number" &&
@@ -201,10 +213,10 @@ export default function RecentFiles({
                   lastOpened: file.lastOpened,
                 }}
                 open={async () => {
-                  await requestPermission(file.fileHandle);
+                  await requestPermission(file.handle);
                   await checkExistance(file);
                   document
-                    .startViewTransition(() => setFileKey(file.key))
+                    .startViewTransition(() => setDirectoryKey(file.key))
                     .finished.then(() => dismiss());
                 }}
               />
@@ -249,17 +261,6 @@ function RecentFile({
           {!file && <Skeleton className="w-[90px] h-4" />}
           {file?.name}
         </CardHeader>
-        <CardFooter
-          className="p-2 pt-0 text-xs"
-          style={{
-            viewTransitionName: file
-              ? `lastOpened-${String(file.key)}`
-              : undefined,
-          }}
-        >
-          {!file && <Skeleton className="w-[60px] h-4" />}
-          {file && <RelativeTime time={file.lastOpened} />}
-        </CardFooter>
       </Card>
     </Button>
   );

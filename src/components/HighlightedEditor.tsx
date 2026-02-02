@@ -6,14 +6,8 @@ import {
 } from "@/workers/highlighter/communication";
 import escapeHTML from "@/helpers/escapeHTML";
 import worker from "@/workers/highlighter/init";
-// TODO: use the div as the edit area and use contenteditable together with mutation observer to provide the edit functionality
-// https://stackoverflow.com/a/14043919/10429375
-// then have some system in place to check if a change happend while highlighting was in progress
-// then only apply highlighting if no changes happend inbetween
-// this way the user does not notice that their text that tey are editing is replaced with highlighted text
-// benifit: no delay between user input and text appearing
 
-export default function Highlighter({
+export default function HighlightedEditor({
   content,
   onChange,
   updateHighlightInfo,
@@ -28,10 +22,8 @@ export default function Highlighter({
   const [highlightedHTML, setHighlightedHTML] = useState(escapeHTML(content));
   const [_highlightTime, setHighlightTime] = useState<number | null>(null);
   const [lastUpdateTimestmap, setLastUpdateTimestmap] = useState<number | null>(
-    null
+    null,
   );
-
-  // TODO implement highlight debounce using `highlightTime`
 
   // send highlight message
   useEffect(() => {
@@ -58,13 +50,17 @@ export default function Highlighter({
   }, [lastUpdateTimestmap, updateHighlightInfo]);
 
   return (
-    <div
-      className="relative z-0 p-2 font-mono text-base whitespace-pre"
-      dangerouslySetInnerHTML={{ __html: highlightedHTML }}
-      contentEditable="plaintext-only"
-      onInput={(e) => {
-        onChange((e.target as HTMLDivElement).innerText);
-      }}
-    />
+    <div className="p-2 size-full">
+      <textarea
+        className="bg-transparent text-transparent outline-none caret-white size-full font-mono text-base whitespace-pre"
+        onChange={(e) => onChange((e.target as HTMLTextAreaElement).value)}
+        value={content}
+      />
+
+      <div
+        className="absolute pointer-events-none top-0 left-0 p-2 z-0 font-mono text-base whitespace-pre"
+        dangerouslySetInnerHTML={{ __html: highlightedHTML }}
+      />
+    </div>
   );
 }
